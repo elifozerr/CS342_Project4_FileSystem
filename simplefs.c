@@ -7,6 +7,12 @@
 #include <fcntl.h>
 #include "simplefs.h"
 
+#define MAX_FILE_NAME 110
+#define DIR_SIZE 128
+#define FCB_SIZE 128
+#define MAX_FILE 16
+
+
 
 // Global Variables =======================================
 int vdisk_fd; // Global virtual disk file descriptor. Global within the library.
@@ -14,8 +20,39 @@ int vdisk_fd; // Global virtual disk file descriptor. Global within the library.
               // Any function in this file can use this.
               // Applications will not use  this directly.
 // ========================================================
+int sizeOfDisk;
+int blockNum;
+char name_disk[256];
 
 
+typedef struct openFileTableEntry{
+
+  char name[MAX_FILE_NAME];
+  int accessMode;
+  int offset;
+  int available;
+  int openNum;
+
+}
+
+struct openFileTableEntry openFileTable[MAX_FILE];
+typedef struct FCB{
+
+  int isUsed;
+  int size;
+  int blockNo;
+
+}FCB;
+
+
+typedef struct dirEntry{
+
+  char fileName[MAX_FILE_NAME];
+  struct FCB fcb;
+
+}dirEntry;
+
+struct dirEntry dirStructure[DIR_SIZE];
 // read block k from disk (virtual disk) into buffer block.
 // size of the block is BLOCKSIZE.
 // space for block must be allocated outside of this function.
@@ -91,7 +128,7 @@ int create_format_vdisk (char *vdiskname, unsigned int m)
 
     //erase data in BLOCKSIZE bytes from mem starting from buffer
     bzero((void*)buffer, BLOCKSIZE);
-    fd_vdisk = open(vdiskname, O_RDWR);
+    vdisk_fd = open(vdiskname, O_RDWR);
     int numBlocks = size/BLOCKSIZE;
     //write to the blocks
     for(int i = 0; i< numBlocks; i++){
