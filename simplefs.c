@@ -19,13 +19,13 @@ int vdisk_fd; // Global virtual disk file descriptor. Global within the library.
               // Will be assigned with the vsfs_mount call.
               // Any function in this file can use this.
               // Applications will not use  this directly.
-// ========================================================
+
 int sizeOfDisk;
 int blockNum;
 char name_disk[256];
+// ========================================================
 
-
-typedef struct openFileTableEntry{
+typedef struct openFileTableEntry {
 
   char name[MAX_FILE_NAME];
   int accessMode;
@@ -33,26 +33,28 @@ typedef struct openFileTableEntry{
   int available;
   int openNum;
 
-}
+} openFileTableEntry;
 
 struct openFileTableEntry openFileTable[MAX_FILE];
-typedef struct FCB{
+
+typedef struct FCB {
 
   int isUsed;
-  int size;
-  int blockNo;
+  int index_table_block;
+  int index;
 
-}FCB;
+} FCB;
 
-
-typedef struct dirEntry{
+typedef struct dirEntry {
 
   char fileName[MAX_FILE_NAME];
-  struct FCB fcb;
+  int FCB_index;
+  int available;
 
-}dirEntry;
+} dirEntry;
 
 struct dirEntry dirStructure[DIR_SIZE];
+
 // read block k from disk (virtual disk) into buffer block.
 // size of the block is BLOCKSIZE.
 // space for block must be allocated outside of this function.
@@ -116,7 +118,6 @@ int create_format_vdisk (char *vdiskname, unsigned int m)
     // now write the code to format the disk below.
     // .. your code...
 
-    size = pow(2,m);
     //create disk
     int disk = open(vdiskname, O_CREAT|O_RDWR ,0666);
     if(disk == -1){
