@@ -350,5 +350,18 @@ int sfs_delete(char *filename)
 int main(int argc, char const *argv[]) {
   /* code */
   create_format_vdisk("disk",20);
+  unsigned int *block;
+  read_block((void *) block, 1);
+  int c, k;
+  for (int i = 0; i < BITMAP_ROW_COUNT; i++) {
+    for (c = 31; c >= 0; c--) {
+      k = block[i] >> c;
+      if (k & 1)
+        printf("1");
+      else
+        printf("0");
+    }
+    printf("\n");
+  }
   return 0;
 }
