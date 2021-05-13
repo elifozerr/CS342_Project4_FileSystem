@@ -5,14 +5,19 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <string.h>
 #include "simplefs.h"
 
 #define MAX_FILE_NAME 110
 #define DIR_SIZE 128
 #define FCB_SIZE 128
-#define MAX_FILE 16
+#define MAX_FILE_OPEN 16
+#define MAX_FILE 128
 
-
+int main(int argc, char const *argv[]) {
+  /* code */
+  return 0;
+}
 
 // Global Variables =======================================
 int vdisk_fd; // Global virtual disk file descriptor. Global within the library.
@@ -25,17 +30,23 @@ int blockNum;
 char name_disk[256];
 // ========================================================
 
+typedef struct superBlock{
+  //to fill the block elements
+  char foo[BLOCKSIZE-(sizeof(int))];
+  int blockCount;
+}superBlock;
+
 typedef struct openFileTableEntry {
 
   char name[MAX_FILE_NAME];
   int accessMode;
-  int offset;
+  int file_offset;
   int available;
   int openNum;
 
 } openFileTableEntry;
 
-struct openFileTableEntry openFileTable[MAX_FILE];
+struct openFileTableEntry openFileTable[MAX_FILE_OPEN];
 
 typedef struct FCB {
 
@@ -45,11 +56,13 @@ typedef struct FCB {
 
 } FCB;
 
+
 typedef struct dirEntry {
 
   char fileName[MAX_FILE_NAME];
   int FCB_index;
   int available;
+  char foo[DIR_SIZE-(sizeof(char)*MAX_FILE_NAME)-(sizeof(int)*2)];
 
 } dirEntry;
 
@@ -126,22 +139,44 @@ int create_format_vdisk (char *vdiskname, unsigned int m)
     }
 
     char buffer[BLOCKSIZE];
-
+    int n;
     //erase data in BLOCKSIZE bytes from mem starting from buffer
     bzero((void*)buffer, BLOCKSIZE);
     vdisk_fd = open(vdiskname, O_RDWR);
     int numBlocks = size/BLOCKSIZE;
     //write to the blocks
     for(int i = 0; i< numBlocks; i++){
-      n = write(fd,buffer,BLOCKSIZE);
+      n = write(vdisk_fd,buffer,BLOCKSIZE);
 
     }
-    close(fd_vdisk);
+    close(vdisk_fd);
 
     printf("Virtual disk is created\n" );
 
     //format operations of the disk starting here
+    vdisk_fd=open(vdiskname,O_RDWR);
 
+    //init directory structure
+    for(int i = 0; i<DIR_SIZE; i++){
+      strcpy(dirStructure[i].fileName,"");
+      //dirStructure[i].fileName="";
+      dirStructure[i].available = 1;
+      dirStructure[i].FCB_index=-1;
+
+    }
+
+    //init openFileTable
+    for(int i = 0; i<MAX_FILE_OPEN;i++){
+      strcpy(openFileTable[i].name,"");
+      openFileTable[i].accessMode=-1;
+      openFileTable[i].file_offset=0;
+      openFileTable[i].available = 1;
+      openFileTable[i].openNum=0;
+      //openFileTable[i].name="";
+    }
+
+    //init superBlock
+    char superBlock[BLOCKSIZE];
 
     return (0);
 }
