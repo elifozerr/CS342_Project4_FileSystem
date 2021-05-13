@@ -344,3 +344,9 @@ int sfs_delete(char *filename)
 {
     return (0);
 }
+
+int main(int argc, char const *argv[]) {
+  /* code */
+  create_format_vdisk("disk",20);
+  return 0;
+}
