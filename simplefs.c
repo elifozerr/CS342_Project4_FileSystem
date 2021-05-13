@@ -128,8 +128,8 @@ int find_free_block() {
       printf("from right %d\n", where_one_right);
       int where_one_left = BITMAP_ROW_SIZE - where_one_right;
       printf("from left %d\n", where_one_left);
-      block[count_zeros] -= pow(2, where_one_right);
-      printf("new block %d\n", block[count_zeros]);
+      bitmap[count_zeros] -= pow(2, where_one_right);
+      printf("new block %d\n", bitmap[count_zeros]);
       printf("block = %d\n", count_zeros * BITMAP_ROW_SIZE + where_one_left - 1);
       return count_zeros * BITMAP_ROW_SIZE + where_one_left - 1 + (bitmap_block - 1) * BITMAP_ROW_SIZE * BITMAP_ROW_COUNT;
     }
@@ -151,7 +151,7 @@ int free_block(int block_index) {
   int row = (int) (block_index / BITMAP_ROW_SIZE);
   int row_pos = block_index % BITMAP_ROW_SIZE;
   unsigned int *block;
-  bitmap_block_index = block_index / (BITMAP_ROW_SIZE * BITMAP_ROW_COUNT) + 1
+  int bitmap_block_index = block_index / (BITMAP_ROW_SIZE * BITMAP_ROW_COUNT) + 1;
   read_block((void *) block, bitmap_block_index);
   block[row] += pow(2, BITMAP_ROW_SIZE - (row_pos + 1));
   write_block((void *) block, bitmap_block_index);
@@ -231,6 +231,25 @@ int create_format_vdisk (char *vdiskname, unsigned int m)
 
     //define block
     char block[BLOCKSIZE];
+
+    //block 1-2-3-4 contain the bitmap
+    for (int i = 1; i <= 4; i++) {
+      unsigned int bitmap[BITMAP_ROW_COUNT];
+      if (i == 1) {
+        bitmap[0] = 0x0007FFFF;
+        for (int i = 1; i < BITMAP_ROW_COUNT; i++) {
+          bitmap[i] = UINT_MAX;
+        }
+      }
+      else {
+        for (int i = 0; i < BITMAP_ROW_COUNT; i++) {
+          bitmap[i] = UINT_MAX;
+        }
+      }
+
+      memcpy(block, (void *) bitmap, BITMAP_ROW_COUNT * sizeof(int));
+      if (write_block(block,i) != 0) return -1;
+    }
 
     //block 5-6-7-8 contain the directory structure
     //copy 1/4 of the directory into block 6
