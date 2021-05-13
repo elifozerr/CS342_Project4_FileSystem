@@ -100,15 +100,63 @@ int write_block (void *block, int k)
     lseek(vdisk_fd, (off_t) offset, SEEK_SET);
     n = write (vdisk_fd, block, BLOCKSIZE);
     if (n != BLOCKSIZE) {
-	printf ("write error\n");
-	return (-1);
+    	printf ("write error\n");
+    	return (-1);
     }
     return 0;
 }
 
-int find_free_space() {
+int find_free_block() {
+  int count_zeros = 0;
+  int found = 0;
+  int bitmap_block = 1;
+  unsigned int *bitmap;
+  if (read_block((void *) bitmap, bitmap_block) == -1) {
+    printf("bitmap read error\n");
+    return -1;
+  }
 
+  while (bitmap_block <= 4) {
+    unsigned int row = bitmap[count_zeros];
+    printf("row = %d\n", row);
+    if (row == 0) {
+      count_zeros++;
+      printf("count zeros incremented: %d\n", count_zeros);
+    }
+    else {
+      int where_one_right = (int) log2(row);
+      printf("from right %d\n", where_one_right);
+      int where_one_left = BITMAP_ROW_SIZE - where_one_right;
+      printf("from left %d\n", where_one_left);
+      block[count_zeros] -= pow(2, where_one_right);
+      printf("new block %d\n", block[count_zeros]);
+      printf("block = %d\n", count_zeros * BITMAP_ROW_SIZE + where_one_left - 1);
+      return count_zeros * BITMAP_ROW_SIZE + where_one_left - 1 + (bitmap_block - 1) * BITMAP_ROW_SIZE * BITMAP_ROW_COUNT;
+    }
+
+    if (count_zeros == BITMAP_ROW_COUNT) {
+      count_zeros = 0;
+      bitmap_block++;
+      if (read_block((void *) bitmap, bitmap_block) == -1) {
+        printf("bitmap read error\n");
+        return -1;
+      }
+    }
+  }
+
+  return -1;
 }
+
+int free_block(int block_index) {
+  int row = (int) (block_index / BITMAP_ROW_SIZE);
+  int row_pos = block_index % BITMAP_ROW_SIZE;
+  unsigned int *block;
+  bitmap_block_index = block_index / (BITMAP_ROW_SIZE * BITMAP_ROW_COUNT) + 1
+  read_block((void *) block, bitmap_block_index);
+  block[row] += pow(2, BITMAP_ROW_SIZE - (row_pos + 1));
+  write_block((void *) block, bitmap_block_index);
+}
+
 
 /**********************************************************************
    The following functions are to be called by applications directly.
