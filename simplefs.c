@@ -63,9 +63,9 @@ struct FCB fcb_table[FCB_SIZE];
 typedef struct dirEntry {
 
   char fileName[MAX_FILE_NAME];
+  char foo[DIR_SIZE-(sizeof(char)*MAX_FILE_NAME)-(sizeof(int)*2)];
   int FCB_index;
   int available;
-  char foo[DIR_SIZE-(sizeof(char)*MAX_FILE_NAME)-(sizeof(int)*2)];
 
 } dirEntry;
 
@@ -251,6 +251,8 @@ int create_format_vdisk (char *vdiskname, unsigned int m)
       if (write_block(block,i) != 0) return -1;
     }
 
+    printf("size of dirEntry = %ld bytes\n", sizeof(struct dirEntry));
+    printf("size of foo = %ld\n", DIR_SIZE-(sizeof(char)*MAX_FILE_NAME)-(sizeof(int)*2));
     //block 5-6-7-8 contain the directory structure
     //copy 1/4 of the directory into block 6
     memcpy(block,dirStructure, 32*(sizeof(struct dirEntry)));
