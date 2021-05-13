@@ -14,10 +14,7 @@
 #define MAX_FILE_OPEN 16
 #define MAX_FILE 128
 
-int main(int argc, char const *argv[]) {
-  /* code */
-  return 0;
-}
+
 
 // Global Variables =======================================
 int vdisk_fd; // Global virtual disk file descriptor. Global within the library.
@@ -56,6 +53,7 @@ typedef struct FCB {
 
 } FCB;
 
+struct FCB fcb_table[FCB_SIZE];
 
 typedef struct dirEntry {
 
@@ -175,8 +173,42 @@ int create_format_vdisk (char *vdiskname, unsigned int m)
       //openFileTable[i].name="";
     }
 
-    //init superBlock
-    char superBlock[BLOCKSIZE];
+    //define block
+    char block[BLOCKSIZE];
+
+    //block 5-6-7-8 contain the directory structure
+    //copy 1/4 of the directory into block 6
+    memcpy(block,dirStructure, 32*(sizeof(struct dirEntry)));
+    //insert block into disk
+    if (write_block(block,5) != 0) return -1;
+    //copy 1/4 of the directory into block 7
+    memcpy(block,dirStructure, 32*(sizeof(struct dirEntry)));
+    //insert block into disk
+    if (write_block(block,6) != 0) return -1;
+    //copy 1/4 of the directory into block 8
+    memcpy(block,dirStructure, 32*(sizeof(struct dirEntry)));
+    //insert block into disk
+    if (write_block(block,7) != 0) return -1;
+    //copy 1/4 of the directory into block 9
+    memcpy(block,dirStructure, 32*(sizeof(struct dirEntry)));
+    //insert block into disk
+    if (write_block(block,8) != 0) return -1;
+
+    for(int i = 0; i<FCB_SIZE; i++){
+      fcb_table[i].isUsed=0;
+      fcb_table[i].index=i;
+      fcb_table[i].index_table_block=-1;
+
+    }
+
+    //init fcb index_table_block
+    int block_index = 9;
+    int fcb_block_count = 4;
+    for(int i = 0; i<fcb_block_count;i++){
+      memcpy(block,fcb_table,32*(sizeof(struct FCB)));
+      if(write_block(block,block_index) != 0 ) return -1;
+      block_index++;
+    }
 
     return (0);
 }
