@@ -7,6 +7,11 @@
 #include <fcntl.h>
 #include <string.h>
 #include "simplefs.h"
+#include <limits.h>
+#include <math.h>
+
+#define BITMAP_ROW_SIZE 32
+#define BITMAP_ROW_COUNT 1024
 
 #define MAX_FILE_NAME 110
 #define DIR_SIZE 128
@@ -101,6 +106,9 @@ int write_block (void *block, int k)
     return 0;
 }
 
+int find_free_space() {
+
+}
 
 /**********************************************************************
    The following functions are to be called by applications directly.
