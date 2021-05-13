@@ -42,7 +42,6 @@ int free_block(int block_index) {
   int row = (int) (block_index / BITMAP_ROW_SIZE);
   int row_pos = block_index % BITMAP_ROW_SIZE;
   block[row] += pow(2, BITMAP_ROW_SIZE - (row_pos + 1));
-
 }
 
 int main() {

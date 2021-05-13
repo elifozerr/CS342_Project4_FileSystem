@@ -41,6 +41,7 @@ typedef struct superBlock{
 typedef struct openFileTableEntry {
 
   char name[MAX_FILE_NAME];
+  char foo[DIR_SIZE-(sizeof(char)*MAX_FILE_NAME)-(sizeof(int)*4)];
   int accessMode;
   int file_offset;
   int available;
@@ -52,6 +53,7 @@ struct openFileTableEntry openFileTable[MAX_FILE_OPEN];
 
 typedef struct FCB {
 
+  char foo[DIR_SIZE - 3*sizeof(int)];
   int isUsed;
   int index_table_block;
   int index;
@@ -247,7 +249,7 @@ int create_format_vdisk (char *vdiskname, unsigned int m)
         }
       }
 
-      memcpy(block, (void *) bitmap, BITMAP_ROW_COUNT * sizeof(int));
+      memcpy(block, (void *) bitmap, BITMAP_ROW_COUNT * sizeof(unsigned int));
       if (write_block(block,i) != 0) return -1;
     }
 
@@ -283,6 +285,7 @@ int create_format_vdisk (char *vdiskname, unsigned int m)
     int fcb_block_count = 4;
     for(int i = 0; i<fcb_block_count;i++){
       memcpy(block,fcb_table,32*(sizeof(struct FCB)));
+      printf("FCB: %ld\n", 32*(sizeof(struct FCB)));
       if(write_block(block,block_index) != 0 ) return -1;
       block_index++;
     }
@@ -350,12 +353,12 @@ int sfs_delete(char *filename)
 int main(int argc, char const *argv[]) {
   /* code */
   create_format_vdisk("disk",20);
-  unsigned int *block;
-  read_block((void *) block, 1);
+  char block[BLOCKSIZE];
+  read_block(block, 1);
   int c, k;
   for (int i = 0; i < BITMAP_ROW_COUNT; i++) {
     for (c = 31; c >= 0; c--) {
-      k = block[i] >> c;
+      k = ((unsigned int *)block)[i] >> c;
       if (k & 1)
         printf("1");
       else
