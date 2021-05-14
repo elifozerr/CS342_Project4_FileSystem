@@ -445,7 +445,19 @@ int sfs_close(int fd){
 
 int sfs_getsize (int  fd)
 {
-    return (0);
+
+    int byte_size = 0;
+    if(mounted){
+
+        if(openFileTable[fd].available == 0){
+          byte_size =openFileTable[fd].fcb->fileSize;
+        }
+    }
+    else{
+      printf("Not mounted\n");
+      return(-1);
+    }
+    return byte_size;
 }
 
 int sfs_read(int fd, void *buf, int n) {
