@@ -42,7 +42,7 @@ typedef struct superBlock{
 typedef struct openFileTableEntry {
 
   char name[MAX_FILE_NAME];
-  struct FCB *FCB;
+  struct FCB *fcb;
   int accessMode;
   int file_offset;
   int available;
@@ -54,10 +54,11 @@ struct openFileTableEntry openFileTable[MAX_FILE_OPEN];
 
 typedef struct FCB {
 
-  char foo[DIR_SIZE - 3*sizeof(int)];
+  char foo[DIR_SIZE - 4*sizeof(int)];
   int isUsed;
   int index_table_block;
   int index;
+  int fileSize;
 
 } FCB;
 
@@ -312,6 +313,7 @@ int sfs_umount () {
 //create  a  new  file with  name filename
 int sfs_create(char *filename)
 {
+<<<<<<< HEAD
     //check size of file name
     if( sizeof(filename) > MAX_FILE_NAME){
       printf("ERROR!! - Size of file name is greater than 110.\n" );
@@ -369,6 +371,8 @@ int sfs_create(char *filename)
       }
 
     }
+=======
+>>>>>>> 81deb30850a91bd56f9e732e99202a6414b80706
 
     return (0);
 }
@@ -389,26 +393,63 @@ int sfs_getsize (int  fd)
 }
 
 int sfs_read(int fd, void *buf, int n) {
-    int bytesRead = -1;
-
-    if (mounted) {
-      if(openFileTable[fd].accessMode == MODE_READ) {
-        if (!openFileTable[fd].available) {
-          int index_table_block = openFileTable[fd].fcb->index_table_block;
+    if (mounted) { // check if mount operation is done
+      if(openFileTable[fd].accessMode == MODE_READ) { // if access mode is read
+        if (!openFileTable[fd].available) { // if file is opened
+          int index_table_block = openFileTable[fd].fcb->index_table_block; // get the index table block of the file
           int *index_table;
-          if (read_block((void *) index_table), index_table_block) == -1) {
+          if (read_block((void *) index_table, index_table_block) == -1) { // get the index table
             printf("index_table read error\n");
             return -1;
           }
 
-          if (index_table[0] != -1) {
-            int read_position = openFileTable[fd].file_offset / BLOCKSIZE;
+          if (index_table[openFileTable[fd].file_offset / BLOCKSIZE] != -1) { // check if the file has content in it
+            int read_position = openFileTable[fd].file_offset / BLOCKSIZE; // get the index table's index to start reading from
+            int block_to_read = index_table[read_position]; // get the block index which contains the content of the file from the index table
+            int block_pos = openFileTable[fd].file_offset % BLOCKSIZE; // get the position where to start in the content block
 
+            char content_block[BLOCKSIZE];
+            if (read_block(content_block, block_to_read) == -1) {
+              printf("content read error\n");
+              return -1;
+            }
+            int bytesRead = 0; // read bytes
+            int no_more_blocks = 0; // 1 if no blocks left to read
+            char buffer[n]; // temporary buffer
+            int buffer_pos = 0; // temporary buffer position to write
+
+            /* while there are blocks to read, read less than n bytes,
+              and read less than the file size */
+            while ((no_more_blocks == 0) && (bytesRead < n)
+                    && bytesRead < openFileTable[fd].fcb->fileSize) {
+              memcpy(&buffer[buffer_pos], &content_block[block_pos], 1); //copy byte by byte to the temporary buffer
+              buffer_pos++;
+              block_pos++;
+              bytesRead++;
+              openFileTable[fd].file_offset++;
+
+              if (block_pos >= BLOCKSIZE) { // if block is finished
+                read_position = read_position + 1;
+                block_to_read = index_table[read_position]; // get the next content block from the index table
+                if (block_to_read != -1) {
+                  if (read_block(content_block, block_to_read) == -1) {
+                    printf("content read error\n");
+                    return -1;
+                  }
+                  block_pos = 0;
+                }
+                else {
+                  no_more_blocks = 0; // there are no blocks left
+                }
+              }
+            }
+            memcpy(buf, buffer, n); // copy the temporary buffer to the actual buffer
+            return bytesRead;
           }
         }
       }
     }
-  return (0);
+    return -1;
 }
 
 
@@ -425,8 +466,6 @@ int sfs_delete(char *filename)
 int main(int argc, char const *argv[]) {
   /* code */
   create_format_vdisk("disk",20);
-  sfs_mount("disk");
-  sfs_create("ardaakcass");
   char block[BLOCKSIZE];
   read_block(block, 1);
   int c, k;
