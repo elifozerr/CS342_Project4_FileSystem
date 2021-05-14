@@ -507,30 +507,107 @@ int sfs_read(int fd, void *buf, int n) {
 
 int sfs_append(int fd, void *buf, int n) {
   if (mounted) { // check if mount operation is done
-    if(openFileTable[fd].accessMode == MODE_APPEND) { // if access mode is read
-      if (!openFileTable[fd].available) { // if file is opened
+   if(openFileTable[fd].accessMode == MODE_APPEND) { // if access mode is read
+     if (!openFileTable[fd].available) { // if file is opened
 
-        //get the appended content
-        char buffer[n];
-        memcpy(buffer, buf, n);
+       //get the appended content
+       char buffer[n];
+       memcpy(buffer, buf, n);
 
-        int *index_table;
-        int index_table_block = openFileTable[fd].fcb->index_table_block; // get the index table block of the file
-        if (read_block((void *) index_table, index_table_block) == -1) { // get the index table
-          printf("index_table read error\n");
-          return -1;
-        }
+       int *index_table;
+       int index_table_block = openFileTable[fd].fcb->index_table_block; // get the index table block of the file
+       if (read_block((void *) index_table, index_table_block) == -1) { // get the index table
+         printf("index_table read error\n");
+         return -1;
+       }
 
-        if (index_table[openFileTable[fd].file_offset / BLOCKSIZE] == -1) {
-          int free_block;
-          if ((free_block = find_free_block()) == -1) {
-            printf("no free blocks left\n");
-            return -1;
-          }
-        }
-      }
-    }
-  }
+       int bytes_written = 0;
+       int index_table_index = 0;
+
+       if (index_table[index_table_index] == -1) { // no content, first write
+         char block[BLOCKSIZE];
+         int block_count = (int) (n / BLOCKSIZE);
+         int last_block_write = n % BLOCKSIZE;
+
+         int free_block;
+         int buf_index = 0;
+
+         for (int i = 0; i < block_count; i++) {
+
+           if ((free_block = find_free_block()) == -1) {
+             printf("no free blocks left\n");
+             return bytes_written;
+           }
+
+           if (i != block_count) {
+             for (int j = 0; j < BLOCKSIZE; j++) {
+               memcpy(&block[j], &buffer[buf_index], 1);
+               buf_index++;
+               bytes_written++;
+               openFileTable[fd].fcb->fileSize++;
+             }
+           }
+           else {
+             for (int j = 0; j < last_block_write; j++) {
+               memcpy(&block[j], &buffer[buf_index], 1);
+               buf_index++;
+               bytes_written++;
+               openFileTable[fd].fcb->fileSize++;
+             }
+           }
+
+           write_block(block, free_block);
+           index_table[index_table_index] = free_block;
+           index_table_index++;
+           openFileTable[fd].file_offset = bytes_written;
+         }
+       }
+       else {
+         int write_position = openFileTable[fd].file_offset / BLOCKSIZE; // get the index table's index to start writing from
+         int block_to_write = index_table[write_position]; // get the block index which contains the content of the file from the index table
+         int block_pos = openFileTable[fd].file_offset % BLOCKSIZE; // get the position where to start in the content block
+
+         char block[BLOCKSIZE];
+         if (read_block(block, block_to_write) == -1) { // get the block to write
+           printf("block to write read error\n");
+           return -1;
+         }
+
+         int buf_index = 0;
+
+         while (bytes_written < n) {
+           memcpy(&block[block_pos], &buffer[buf_index], 1);
+           bytes_written++;
+           openFileTable[fd].fcb->fileSize++;
+           block_pos++;
+           openFileTable[fd].file_offset++;
+           buf_index++;
+
+           if (block_pos >= BLOCKSIZE) {
+             if (write_block(block, block_to_write) == -1) {
+               printf("cannot write to block");
+               return -1;
+             }
+             if ((block_to_write = find_free_block()) == -1) {
+               printf("no free blocks left\n");
+               return bytes_written;
+             }
+
+             if (read_block(block, block_to_write) == -1) { // get the block to write
+               printf("block to write read error\n");
+               return -1;
+             }
+
+             block_pos = 0;
+           }
+         }
+         write_block(block, block_to_write);
+         return bytes_written;
+       }
+     }
+   }
+ }
+ return -1;
 }
 
 int sfs_delete(char *filename)
