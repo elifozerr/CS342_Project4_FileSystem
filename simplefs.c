@@ -436,7 +436,30 @@ int sfs_open(char *file, int mode)
 }
 
 int sfs_close(int fd){
-    return (0);
+
+    if(mounted){
+        //check whether the the file in open file fcb_table
+        if(openFileTable[fd].available == 1){
+          printf("the index of fd %d is empty in the open file table\n", fd);
+          return (-1);
+        }
+        else{
+
+          openFileTable[fd].openNum -=1;
+          if(openFileTable[fd].openNum ==0){
+            openFileTable[fd].available = 1;
+            char name [MAX_FILE_NAME];
+            strcpy(name,openFileTable[fd].name);
+            printf("the file %s is closed\n", name);
+            return(0);
+          }
+        }
+    }
+    else{
+        printf("ERROR - Not mounted\n" );
+        return(-1);
+    }
+
 }
 
 int sfs_getsize (int  fd)
@@ -620,8 +643,12 @@ int main(int argc, char const *argv[]) {
   create_format_vdisk("disk",20);
 
   sfs_mount("disk");
-  sfs_create("akca");
-  sfs_open("akca", 1);
+  sfs_create("elif");
+  sfs_open("elif", 1);
+  sfs_create("elif-dosya-oldu");
+  sfs_open("elif-dosya-oldu",0);
+  sfs_close(0);
+  sfs_close(1);
   /*char block[BLOCKSIZE];
 =======
   char block[BLOCKSIZE];
