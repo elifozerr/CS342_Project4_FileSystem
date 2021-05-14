@@ -42,7 +42,7 @@ typedef struct superBlock{
 typedef struct openFileTableEntry {
 
   char name[MAX_FILE_NAME];
-  char foo[DIR_SIZE-(sizeof(char)*MAX_FILE_NAME)-(sizeof(int)*4)];
+  struct FCB *FCB;
   int accessMode;
   int file_offset;
   int available;
@@ -171,144 +171,142 @@ int free_block(int block_index) {
 *initialize/create an sfs  file  system  on  the  virtual  disk
 *On-disk  file  system  structures  initialized  on  the virtual disk.
 */
-int create_format_vdisk (char *vdiskname, unsigned int m)
-{
-    char command[1000];
-    int size;
-    int num = 1;
-    int count;
-    size  = num << m;
-    count = size / BLOCKSIZE; //block count
-    //    printf ("%d %d", m, size);
-    sprintf (command, "dd if=/dev/zero of=%s bs=%d count=%d",
-             vdiskname, BLOCKSIZE, count);
-    //printf ("executing command = %s\n", command);
-    system (command);
+int create_format_vdisk (char *vdiskname, unsigned int m) {
+  char command[1000];
+  int size;
+  int num = 1;
+  int count;
+  size  = num << m;
+  count = size / BLOCKSIZE; //block count
+  //    printf ("%d %d", m, size);
+  sprintf (command, "dd if=/dev/zero of=%s bs=%d count=%d",
+           vdiskname, BLOCKSIZE, count);
+  //printf ("executing command = %s\n", command);
+  system (command);
 
-    // now write the code to format the disk below.
-    // .. your code...
+  // now write the code to format the disk below.
+  // .. your code...
 
-    //create disk
-    int disk = open(vdiskname, O_CREAT|O_RDWR ,0666);
-    if(disk == -1){
-      printf("Disk is not created\n" );
-      exit(-1);
-    }
+  //create disk
+  int disk = open(vdiskname, O_CREAT|O_RDWR ,0666);
+  if(disk == -1){
+    printf("Disk is not created\n" );
+    exit(-1);
+  }
 
-    char buffer[BLOCKSIZE];
-    int n;
-    //erase data in BLOCKSIZE bytes from mem starting from buffer
-    bzero((void*)buffer, BLOCKSIZE);
-    vdisk_fd = open(vdiskname, O_RDWR);
-    int numBlocks = size/BLOCKSIZE;
-    //write to the blocks
-    for(int i = 0; i< numBlocks; i++){
-      n = write(vdisk_fd,buffer,BLOCKSIZE);
+  char buffer[BLOCKSIZE];
+  int n;
+  //erase data in BLOCKSIZE bytes from mem starting from buffer
+  bzero((void*)buffer, BLOCKSIZE);
+  vdisk_fd = open(vdiskname, O_RDWR);
+  int numBlocks = size/BLOCKSIZE;
+  //write to the blocks
+  for(int i = 0; i< numBlocks; i++){
+    n = write(vdisk_fd,buffer,BLOCKSIZE);
 
-    }
-    close(vdisk_fd);
+  }
+  close(vdisk_fd);
 
-    printf("Virtual disk is created\n" );
+  printf("Virtual disk is created\n" );
 
-    //format operations of the disk starting here
-    vdisk_fd=open(vdiskname,O_RDWR);
+  //format operations of the disk starting here
+  vdisk_fd=open(vdiskname,O_RDWR);
 
-    //init directory structure
-    for(int i = 0; i<DIR_SIZE; i++){
-      strcpy(dirStructure[i].fileName,"");
-      //dirStructure[i].fileName="";
-      dirStructure[i].available = 1;
-      dirStructure[i].FCB_index=-1;
+  //init directory structure
+  for(int i = 0; i<DIR_SIZE; i++){
+    strcpy(dirStructure[i].fileName,"");
+    //dirStructure[i].fileName="";
+    dirStructure[i].available = 1;
+    dirStructure[i].FCB_index=-1;
 
-    }
+  }
 
-    //init openFileTable
-    for(int i = 0; i<MAX_FILE_OPEN;i++){
-      strcpy(openFileTable[i].name,"");
-      openFileTable[i].accessMode=-1;
-      openFileTable[i].file_offset=0;
-      openFileTable[i].available = 1;
-      openFileTable[i].openNum=0;
-      //openFileTable[i].name="";
-    }
+  //init openFileTable
+  for(int i = 0; i<MAX_FILE_OPEN;i++){
+    strcpy(openFileTable[i].name,"");
+    openFileTable[i].accessMode=-1;
+    openFileTable[i].file_offset=0;
+    openFileTable[i].available = 1;
+    openFileTable[i].openNum=0;
+    //openFileTable[i].name="";
+  }
 
-    //define block
-    char block[BLOCKSIZE];
+  //define block
+  char block[BLOCKSIZE];
 
-    //block 1-2-3-4 contain the bitmap
-    for (int i = 1; i <= 4; i++) {
-      unsigned int bitmap[BITMAP_ROW_COUNT];
-      if (i == 1) {
-        bitmap[0] = 0x0007FFFF;
-        for (int i = 1; i < BITMAP_ROW_COUNT; i++) {
-          bitmap[i] = UINT_MAX;
-        }
+  //block 1-2-3-4 contain the bitmap
+  for (int i = 1; i <= 4; i++) {
+    unsigned int bitmap[BITMAP_ROW_COUNT];
+    if (i == 1) {
+      bitmap[0] = 0x0007FFFF;
+      for (int i = 1; i < BITMAP_ROW_COUNT; i++) {
+        bitmap[i] = UINT_MAX;
       }
-      else {
-        for (int i = 0; i < BITMAP_ROW_COUNT; i++) {
-          bitmap[i] = UINT_MAX;
-        }
+    }
+    else {
+      for (int i = 0; i < BITMAP_ROW_COUNT; i++) {
+        bitmap[i] = UINT_MAX;
       }
-
-      memcpy(block, (void *) bitmap, BITMAP_ROW_COUNT * sizeof(unsigned int));
-      if (write_block(block,i) != 0)
-        return -1;
     }
 
-    printf("size of dirEntry = %ld bytes\n", sizeof(struct dirEntry));
-    printf("size of foo = %ld\n", DIR_SIZE-(sizeof(char)*MAX_FILE_NAME)-(sizeof(int)*2));
+    memcpy(block, (void *) bitmap, BITMAP_ROW_COUNT * sizeof(unsigned int));
+    if (write_block(block,i) != 0)
+      return -1;
+  }
 
-    //block 5-6-7-8 contain the directory structure
-    for (int i = 5; i <= 8; i++) {
-      memcpy(block,dirStructure, 32*(sizeof(struct dirEntry)));
-      if (write_block(block,i) != 0)
-        return -1;
-    }
+  printf("size of dirEntry = %ld bytes\n", sizeof(struct dirEntry));
+  printf("size of openFileTableEntry = %ld bytes\n", sizeof(struct openFileTableEntry));
+  printf("size of foo = %ld\n", DIR_SIZE-(sizeof(char)*MAX_FILE_NAME)-(sizeof(int)*2));
 
-    for(int i = 0; i<FCB_SIZE; i++) {
-      fcb_table[i].isUsed=0;
-      fcb_table[i].index=i;
-      fcb_table[i].index_table_block=-1;
-    }
+  //block 5-6-7-8 contain the directory structure
+  for (int i = 5; i <= 8; i++) {
+    memcpy(block,dirStructure, 32*(sizeof(struct dirEntry)));
+    if (write_block(block,i) != 0)
+      return -1;
+  }
 
-    //init fcb blocks
-    int block_index = 9;
-    int fcb_block_count = 4;
-    for(int i = 0; i<fcb_block_count;i++) {
-      memcpy(block,fcb_table,32*(sizeof(struct FCB)));
-      printf("FCB: %ld\n", 32*(sizeof(struct FCB)));
-      if(write_block(block,block_index) != 0 ) return -1;
-      block_index++;
-    }
+  for(int i = 0; i<FCB_SIZE; i++) {
+    fcb_table[i].isUsed=0;
+    fcb_table[i].index=i;
+    fcb_table[i].index_table_block=-1;
+  }
 
-    //initialize open file table
-    for (int i = 0; i < MAX_FILE_OPEN; i++) {
-      openFileTable[i].available = 1;
-    }
+  //init fcb blocks
+  int block_index = 9;
+  int fcb_block_count = 4;
+  for(int i = 0; i<fcb_block_count;i++) {
+    memcpy(block,fcb_table,32*(sizeof(struct FCB)));
+    printf("FCB: %ld\n", 32*(sizeof(struct FCB)));
+    if(write_block(block,block_index) != 0 ) return -1;
+    block_index++;
+  }
 
-    return (0);
+  //initialize open file table
+  for (int i = 0; i < MAX_FILE_OPEN; i++) {
+    openFileTable[i].available = 1;
+  }
+
+  return (0);
 }
 
 
 // implemented
-int sfs_mount (char *vdiskname)
-{
-    // simply open the Linux file vdiskname and in this
-    // way make it ready to be used for other operations.
-    // vdisk_fd is global; hence other function can use it.
-    vdisk_fd = open(vdiskname, O_RDWR);
-    mounted = 1;
-    return(0);
+int sfs_mount (char *vdiskname) {
+  // simply open the Linux file vdiskname and in this
+  // way make it ready to be used for other operations.
+  // vdisk_fd is global; hence other function can use it.
+  vdisk_fd = open(vdiskname, O_RDWR);
+  mounted = 1;
+  return(0);
 }
 
 
 // implemented
-int sfs_umount ()
-{
-    fsync (vdisk_fd); // copy everything in memory to disk
-    close (vdisk_fd);
-    mounted = 0;
-    return (0);
+int sfs_umount () {
+  fsync (vdisk_fd); // copy everything in memory to disk
+  close (vdisk_fd);
+  mounted = 0;
+  return (0);
 }
 
 //create  a  new  file with  name filename
@@ -333,8 +331,27 @@ int sfs_getsize (int  fd)
     return (0);
 }
 
-int sfs_read(int fd, void *buf, int n){
-    return (0);
+int sfs_read(int fd, void *buf, int n) {
+    int bytesRead = -1;
+
+    if (mounted) {
+      if(openFileTable[fd].accessMode == MODE_READ) {
+        if (!openFileTable[fd].available) {
+          int index_table_block = openFileTable[fd].fcb->index_table_block;
+          int *index_table;
+          if (read_block((void *) index_table), index_table_block) == -1) {
+            printf("index_table read error\n");
+            return -1;
+          }
+
+          if (index_table[0] != -1) {
+            int read_position = openFileTable[fd].file_offset / BLOCKSIZE;
+
+          }
+        }
+      }
+    }
+  return (0);
 }
 
 
