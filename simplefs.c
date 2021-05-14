@@ -158,11 +158,15 @@ int find_free_block() {
 int free_block(int block_index) {
   int row = (int) (block_index / BITMAP_ROW_SIZE);
   int row_pos = block_index % BITMAP_ROW_SIZE;
-  unsigned int *block;
+  unsigned int block[BITMAP_ROW_COUNT];
   int bitmap_block_index = block_index / (BITMAP_ROW_SIZE * BITMAP_ROW_COUNT) + 1;
   read_block((void *) block, bitmap_block_index);
   block[row] += pow(2, BITMAP_ROW_SIZE - (row_pos + 1));
   write_block((void *) block, bitmap_block_index);
+
+  char zero_buffer[BLOCKSIZE];
+  bzero((void *) zero_buffer, BLOCKSIZE);
+  write_block(zero_buffer, block_index);
 }
 
 
@@ -646,8 +650,46 @@ int sfs_append(int fd, void *buf, int n) {
  return -1;
 }
 
-int sfs_delete(char *filename)
-{
+int sfs_delete(char *filename) {
+  if (mounted) { // check if mount operation is done
+    for (int fd = 0; fd < MAX_FILE_OPEN; i++) {
+      if (strcmp(filename, openFileTable[fd]) == 0 && !openFileTable[fd].available) { // if the file is opened
+        int index_table[1024];
+        int index_table_block = openFileTable[fd].fcb->index_table_block;
+        if (read_block((void *) index_table, index_table_block) == -1) {
+          printf("read index table error\n");
+          return -1;
+        }
+        openFileTable[fd].available = 1;
+        openFileTable[fd].file_offset = 0;
+        openFileTable[fd].openNum = 0;
+        openFileTable[fd].fcb->isUsed = 0;
+        openFileTable[fd].fcb->index_table_block = -1;
+        openFileTable[fd].fcb->fileSize = 0;
+        int dirEntryBlockIndex = 5 + openFileTable[fd].fcb->index / BLOCKSIZE;
+        struct dirEntry dirEntryBlock[32];
+        if (read_block((void *) dirEntryBlock, dirEntryBlockIndex) == -1) {
+          printf("read dir entry block error\n");
+          return -1;
+        }
+
+        if (dirEntryBlock[openFileTable[fd].fcb->index % BLOCKSIZE].FCB_index == openFileTable[fd].fcb->index
+              && strcmp(dirEntryBlock[openFileTable[fd].fcb->index % BLOCKSIZE].fileName, filename) == 0) {
+          printf("doğru yoldasın\n");
+          strcpy(dirEntryBlock[openFileTable[fd].fcb->index % BLOCKSIZE].fileName, "");
+          dirEntryBlock[openFileTable[fd].fcb->index % BLOCKSIZE].available = 1;
+
+        }
+
+        sfs_close(fd);
+
+        int table_index = 0;
+        while (index_table[table_index] != -1) {
+          free_block(index_table[table_index]);
+          table_index++;
+        }
+      }
+    }
     return (0);
 }
 
