@@ -467,13 +467,34 @@ int sfs_append(int fd, void *buf, int n) {
           return -1;
         }
 
-        if (index_table[openFileTable[fd].file_offset / BLOCKSIZE] == -1) {
+        int index_table_index = 0;
+        if (index_table[index_table_index] == -1) { // no content, first write
           int free_block;
           if ((free_block = find_free_block()) == -1) {
             printf("no free blocks left\n");
             return -1;
           }
+
+          char block[BLOCKSIZE];
+          int bytes_written = 0;
+          int block_count = (int) (n / BLOCKSIZE);
+          int last_block_write = n % BLOCKSIZE;
+          for (int i = 0; i < block_count; i++) {
+            for (int i = 0; i < BLOCKSIZE; i++) {
+              memcpy(&block[i], &buffer[i], 1);
+              bytes_written++;
+              openFileTable[fd].fcb->fileSize++;
+            }
+
+            write_block(block, free_block);
+            index_table[index_table_index] = free_block;
+
+          }
+          for (int i = 0; i < last_block_write; i++) {
+
+          }
         }
+        openFileTable[fd].position = n;
       }
     }
   }
