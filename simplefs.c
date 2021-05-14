@@ -313,7 +313,6 @@ int sfs_umount () {
 //create  a  new  file with  name filename
 int sfs_create(char *filename)
 {
-<<<<<<< HEAD
     //check size of file name
     if( sizeof(filename) > MAX_FILE_NAME){
       printf("ERROR!! - Size of file name is greater than 110.\n" );
@@ -355,24 +354,22 @@ int sfs_create(char *filename)
             fcb_table[i].isUsed=1;
             fcb_table[i].index = index;
             fcb_table[i].index_table_block= 9 + (index%32);
-            int free_block = find_free_block();
-            printf("ıntex table will be inserted to free block :%d\n",free_block );
+            //int free_block = find_free_block();
+            //printf("ındex table will be inserted to free block :%d\n",free_block );
             char block[BLOCKSIZE];
             int index_table[1024];
             for(int i = 0;i<1024; i++){
               index_table[i]=-1;
             }
-            memcpy(block,index_table, 1024*(sizeof(int)));
+            /*memcpy(block,index_table, 1024*(sizeof(int)));
             if(write_block(block,free_block) != 0 ) return -1;
-            printf("index table is added to block %d\n", free_block);
+            printf("index table is added to block %d\n", free_block);*/
             printf("%s file is created\n" ,filename);
             return(0);
           }
       }
 
     }
-=======
->>>>>>> 81deb30850a91bd56f9e732e99202a6414b80706
 
     return (0);
 }
@@ -380,7 +377,61 @@ int sfs_create(char *filename)
 
 int sfs_open(char *file, int mode)
 {
-    return (0);
+
+    int file_index=-1;
+    int empty_index=-1;
+    int dir_index =-1;
+    if(mounted){
+
+        int check_found = 0;
+        int check_found_dir=0;
+        int found_in_table = 0;
+
+        //search open file table to check whether file is open
+        for(int i = 0;i< MAX_FILE_OPEN;i++){
+            if(check_found==0){
+                if( (openFileTable[i].available==0) && strcmp(openFileTable[i].name,file)==0){
+                    check_found = 1;
+                    openFileTable[i].openNum += 1;
+                    openFileTable[i].file_offset=0;
+                    openFileTable[i].accessMode = mode; //??
+                    file_index=1;
+                    return file_index;
+
+                }
+            }
+        }
+        //find file by searching directory structure
+        for(int i=0;i<DIR_SIZE;i++){
+
+              if(check_found_dir!=1 && dirStructure[i].available==0
+                && strcmp(dirStructure[i].fileName,file)==0 ){
+                  check_found_dir = 1;
+                  //search open file to find empty read_position
+                  for(int j =0; j<MAX_FILE_OPEN; j++){
+
+                      if(openFileTable[j].available != 0 && found_in_table!=1){
+                          found_in_table=1;
+                          empty_index = j;
+                          dir_index = i;
+                          printf("empty location found in open file table in %d \n",empty_index);
+                          break;
+                      }
+                  }
+                  break;
+              }
+        }
+    }
+
+    //dirStructure[dir_index].FCB_index
+    openFileTable[empty_index].fcb = &(fcb_table[dir_index]);
+    openFileTable[empty_index].openNum = 1;
+    openFileTable[empty_index].accessMode= mode;
+    strcpy(openFileTable[empty_index].name,file);
+    openFileTable[empty_index].file_offset=0;
+    openFileTable[empty_index].available=0;
+    printf("file is added to open file table\n" );
+    return empty_index;
 }
 
 int sfs_close(int fd){
@@ -466,7 +517,10 @@ int sfs_delete(char *filename)
 int main(int argc, char const *argv[]) {
   /* code */
   create_format_vdisk("disk",20);
-  char block[BLOCKSIZE];
+  sfs_mount("disk");
+  sfs_create("akca");
+  sfs_open("akca", 1);
+  /*char block[BLOCKSIZE];
   read_block(block, 1);
   int c, k;
   for (int i = 0; i < BITMAP_ROW_COUNT; i++) {
@@ -478,6 +532,6 @@ int main(int argc, char const *argv[]) {
         printf("0");
     }
     printf("\n");
-  }
+  }*/
   return 0;
 }
