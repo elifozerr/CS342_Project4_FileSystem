@@ -315,12 +315,7 @@ int sfs_umount () {
 }
 
 //create  a  new  file with  name filename
-<<<<<<< HEAD
-int sfs_create(char *filename)
-{
-=======
 int sfs_create(char *filename) {
->>>>>>> 3b0cdd326df874b91e91304c44c0b36200494361
     //check size of file name
     if( sizeof(filename) > MAX_FILE_NAME){
       printf("ERROR!! - Size of file name is greater than 110.\n" );
@@ -362,25 +357,21 @@ int sfs_create(char *filename) {
             fcb_table[i].isUsed=1;
             fcb_table[i].index = index;
             fcb_table[i].index_table_block= 9 + (index%32);
-            //int free_block = find_free_block();
-            //printf("ındex table will be inserted to free block :%d\n",free_block );
+            int free_block = find_free_block();
+            printf("ındex table will be inserted to free block :%d\n",free_block );
             char block[BLOCKSIZE];
             int index_table[1024];
             for(int i = 0;i<1024; i++){
               index_table[i]=-1;
             }
-            /*memcpy(block,index_table, 1024*(sizeof(int)));
+            memcpy(block,index_table, 1024*(sizeof(int)));
             if(write_block(block,free_block) != 0 ) return -1;
-            printf("index table is added to block %d\n", free_block);*/
+            printf("index table is added to block %d\n", free_block);
             printf("%s file is created\n" ,filename);
             return(0);
           }
       }
     }
-<<<<<<< HEAD
-
-=======
->>>>>>> 3b0cdd326df874b91e91304c44c0b36200494361
     return (0);
 }
 
@@ -530,34 +521,13 @@ int sfs_append(int fd, void *buf, int n) {
           return -1;
         }
 
-        int index_table_index = 0;
-        if (index_table[index_table_index] == -1) { // no content, first write
+        if (index_table[openFileTable[fd].file_offset / BLOCKSIZE] == -1) {
           int free_block;
           if ((free_block = find_free_block()) == -1) {
             printf("no free blocks left\n");
             return -1;
           }
-
-          char block[BLOCKSIZE];
-          int bytes_written = 0;
-          int block_count = (int) (n / BLOCKSIZE);
-          int last_block_write = n % BLOCKSIZE;
-          for (int i = 0; i < block_count; i++) {
-            for (int i = 0; i < BLOCKSIZE; i++) {
-              memcpy(&block[i], &buffer[i], 1);
-              bytes_written++;
-              openFileTable[fd].fcb->fileSize++;
-            }
-
-            write_block(block, free_block);
-            index_table[index_table_index] = free_block;
-
-          }
-          for (int i = 0; i < last_block_write; i++) {
-
-          }
         }
-        openFileTable[fd].position = n;
       }
     }
   }
@@ -571,7 +541,7 @@ int sfs_delete(char *filename)
 int main(int argc, char const *argv[]) {
   /* code */
   create_format_vdisk("disk",20);
-<<<<<<< HEAD
+
   sfs_mount("disk");
   sfs_create("akca");
   sfs_open("akca", 1);
