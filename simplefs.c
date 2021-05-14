@@ -356,13 +356,14 @@ int sfs_create(char *filename) {
                 index = i;
               }
             }
-            dirStructure[i].FCB_index=index;
+            dirStructure[index].FCB_index=index;
 
-            fcb_table[i].isUsed=1;
-            fcb_table[i].index = index;
-            fcb_table[i].index_table_block= 9 + (index%32);
+            fcb_table[index].isUsed=1;
+            fcb_table[index].index = index;
+
             int free_block = find_free_block();
             printf("ındex table will be inserted to free block :%d\n",free_block );
+            fcb_table[index].index_table_block= free_block;
             char block[BLOCKSIZE];
             int index_table[1024];
             for(int i = 0;i<1024; i++){
@@ -440,7 +441,28 @@ int sfs_open(char *file, int mode)
 }
 
 int sfs_close(int fd){
-    return (0);
+  if(mounted){
+      //check whether the the file in open file fcb_table
+      if(openFileTable[fd].available == 1){
+        printf("the index of fd %d is empty in the open file table\n", fd);
+        return (-1);
+      }
+      else{
+
+        openFileTable[fd].openNum -=1;
+        if(openFileTable[fd].openNum ==0){
+          openFileTable[fd].available = 1;
+          char name [MAX_FILE_NAME];
+          strcpy(name,openFileTable[fd].name);
+          printf("the file %s is closed\n", name);
+          return(0);
+        }
+      }
+  }
+  else{
+      printf("ERROR - Not mounted\n" );
+      return(-1);
+  }
 }
 
 int sfs_getsize (int  fd)
