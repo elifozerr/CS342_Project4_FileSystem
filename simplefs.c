@@ -30,6 +30,7 @@ int vdisk_fd; // Global virtual disk file descriptor. Global within the library.
 int sizeOfDisk;
 int blockNum;
 char name_disk[256];
+int mounted = 0;
 // ========================================================
 
 typedef struct superBlock{
@@ -296,6 +297,7 @@ int sfs_mount (char *vdiskname)
     // way make it ready to be used for other operations.
     // vdisk_fd is global; hence other function can use it.
     vdisk_fd = open(vdiskname, O_RDWR);
+    mounted = 1;
     return(0);
 }
 
@@ -305,6 +307,7 @@ int sfs_umount ()
 {
     fsync (vdisk_fd); // copy everything in memory to disk
     close (vdisk_fd);
+    mounted = 0;
     return (0);
 }
 
