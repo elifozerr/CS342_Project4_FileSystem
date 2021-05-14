@@ -114,7 +114,7 @@ int find_free_block() {
   int count_zeros = 0;
   int found = 0;
   int bitmap_block = 1;
-  unsigned int *bitmap;
+  unsigned int bitmap[BITMAP_ROW_COUNT];
   if (read_block((void *) bitmap, bitmap_block) == -1) {
     printf("bitmap read error\n");
     return -1;
@@ -134,6 +134,10 @@ int find_free_block() {
       printf("from left %d\n", where_one_left);
       bitmap[count_zeros] -= pow(2, where_one_right);
       printf("new block %d\n", bitmap[count_zeros]);
+      if (write_block((void *) bitmap, bitmap_block) == -1) {
+        printf("bitmap write error\n");
+        return -1;
+      }
       printf("block = %d\n", count_zeros * BITMAP_ROW_SIZE + where_one_left - 1);
       return count_zeros * BITMAP_ROW_SIZE + where_one_left - 1 + (bitmap_block - 1) * BITMAP_ROW_SIZE * BITMAP_ROW_COUNT;
     }
@@ -311,8 +315,12 @@ int sfs_umount () {
 }
 
 //create  a  new  file with  name filename
+<<<<<<< HEAD
 int sfs_create(char *filename)
 {
+=======
+int sfs_create(char *filename) {
+>>>>>>> 3b0cdd326df874b91e91304c44c0b36200494361
     //check size of file name
     if( sizeof(filename) > MAX_FILE_NAME){
       printf("ERROR!! - Size of file name is greater than 110.\n" );
@@ -368,9 +376,11 @@ int sfs_create(char *filename)
             return(0);
           }
       }
-
     }
+<<<<<<< HEAD
 
+=======
+>>>>>>> 3b0cdd326df874b91e91304c44c0b36200494361
     return (0);
 }
 
@@ -504,9 +514,32 @@ int sfs_read(int fd, void *buf, int n) {
 }
 
 
-int sfs_append(int fd, void *buf, int n)
-{
-    return (0);
+int sfs_append(int fd, void *buf, int n) {
+  if (mounted) { // check if mount operation is done
+    if(openFileTable[fd].accessMode == MODE_APPEND) { // if access mode is read
+      if (!openFileTable[fd].available) { // if file is opened
+
+        //get the appended content
+        char buffer[n];
+        memcpy(buffer, buf, n);
+
+        int *index_table;
+        int index_table_block = openFileTable[fd].fcb->index_table_block; // get the index table block of the file
+        if (read_block((void *) index_table, index_table_block) == -1) { // get the index table
+          printf("index_table read error\n");
+          return -1;
+        }
+
+        if (index_table[openFileTable[fd].file_offset / BLOCKSIZE] == -1) {
+          int free_block;
+          if ((free_block = find_free_block()) == -1) {
+            printf("no free blocks left\n");
+            return -1;
+          }
+        }
+      }
+    }
+  }
 }
 
 int sfs_delete(char *filename)
@@ -517,10 +550,19 @@ int sfs_delete(char *filename)
 int main(int argc, char const *argv[]) {
   /* code */
   create_format_vdisk("disk",20);
+<<<<<<< HEAD
   sfs_mount("disk");
   sfs_create("akca");
   sfs_open("akca", 1);
   /*char block[BLOCKSIZE];
+=======
+  char block[BLOCKSIZE];
+
+  for (int i = 0; i < 2 * BITMAP_ROW_COUNT; i++) {
+    printf("FREE = %d\n", find_free_block());
+  }
+
+>>>>>>> 3b0cdd326df874b91e91304c44c0b36200494361
   read_block(block, 1);
   int c, k;
   for (int i = 0; i < BITMAP_ROW_COUNT; i++) {
