@@ -314,6 +314,53 @@ int sfs_umount ()
 //create  a  new  file with  name filename
 int sfs_create(char *filename)
 {
+    //check size of file name
+    if( sizeof(filename) > MAX_FILE_NAME){
+      printf("ERROR!! - Size of file name is greater than 110.\n" );
+      return(-1);
+    }
+
+    if(mounted == 0){
+      printf("ERROR! - Not mounted\n" );
+      return(-1);
+    }
+    else{
+      //search file in directory to check whether the file exists
+      for(int i = 0; i< MAX_FILE; i++){
+
+        if(strcmp(dirStructure[i].fileName,filename)==0){
+          //return(sfs_open(filename,))
+          printf("file already exists in directory, can not be created again");
+          return(-1);
+        }
+      }
+
+      int emptyFound = 0;
+      //find available directory entry to put the file
+      for(int i =0; i<DIR_SIZE;i++){
+          if(dirStructure[i].available==1){
+            emptyFound=1;
+            strcpy(dirStructure[i].fileName,filename);
+            dirStructure[i].available=0;
+
+            //search blocks 9-10-11-12 to find not used FCB_index
+            int index =0;
+            for(int i = 0; i<FCB_SIZE;i++){
+              if(fcb_table[i].isUsed == 0){
+                index = i;
+              }
+            }
+            dirStructure[i].FCB_index=index;
+
+            fcb_table[i].isUsed=1;
+            fcb_table[i].index = index;
+            fcb_table[i].index_table_block= 9 + (index%32);
+            printf("%s file is created\n" ,filename);
+            return(0);
+          }
+      }
+
+    }
 
     return (0);
 }
@@ -351,6 +398,8 @@ int sfs_delete(char *filename)
 int main(int argc, char const *argv[]) {
   /* code */
   create_format_vdisk("disk",20);
+  sfs_mount("disk");
+  sfs_create("ardaakcass");
   char block[BLOCKSIZE];
   read_block(block, 1);
   int c, k;
