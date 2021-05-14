@@ -650,8 +650,8 @@ int sfs_append(int fd, void *buf, int n) {
 
 int sfs_delete(char *filename) {
   if (mounted) { // check if mount operation is done
-    for (int fd = 0; fd < MAX_FILE_OPEN; i++) {
-      if (strcmp(filename, openFileTable[fd]) == 0 && !openFileTable[fd].available) { // if the file is opened
+    for (int fd = 0; fd < MAX_FILE_OPEN; fd++) {
+      if (strcmp(filename, openFileTable[fd].name) == 0 && !openFileTable[fd].available) { // if the file is opened
         int index_table[1024];
         int index_table_block = openFileTable[fd].fcb->index_table_block;
         if (read_block((void *) index_table, index_table_block) == -1) {
@@ -689,6 +689,10 @@ int sfs_delete(char *filename) {
       }
     }
     return (0);
+  }
+  else{
+    return(-1);
+  }
 }
 
 int main(int argc, char const *argv[]) {
