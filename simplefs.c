@@ -250,44 +250,39 @@ int create_format_vdisk (char *vdiskname, unsigned int m)
       }
 
       memcpy(block, (void *) bitmap, BITMAP_ROW_COUNT * sizeof(unsigned int));
-      if (write_block(block,i) != 0) return -1;
+      if (write_block(block,i) != 0)
+        return -1;
     }
 
     printf("size of dirEntry = %ld bytes\n", sizeof(struct dirEntry));
     printf("size of foo = %ld\n", DIR_SIZE-(sizeof(char)*MAX_FILE_NAME)-(sizeof(int)*2));
-    //block 5-6-7-8 contain the directory structure
-    //copy 1/4 of the directory into block 6
-    memcpy(block,dirStructure, 32*(sizeof(struct dirEntry)));
-    //insert block into disk
-    if (write_block(block,5) != 0) return -1;
-    //copy 1/4 of the directory into block 7
-    memcpy(block,dirStructure, 32*(sizeof(struct dirEntry)));
-    //insert block into disk
-    if (write_block(block,6) != 0) return -1;
-    //copy 1/4 of the directory into block 8
-    memcpy(block,dirStructure, 32*(sizeof(struct dirEntry)));
-    //insert block into disk
-    if (write_block(block,7) != 0) return -1;
-    //copy 1/4 of the directory into block 9
-    memcpy(block,dirStructure, 32*(sizeof(struct dirEntry)));
-    //insert block into disk
-    if (write_block(block,8) != 0) return -1;
 
-    for(int i = 0; i<FCB_SIZE; i++){
+    //block 5-6-7-8 contain the directory structure
+    for (int i = 5; i <= 8; i++) {
+      memcpy(block,dirStructure, 32*(sizeof(struct dirEntry)));
+      if (write_block(block,i) != 0)
+        return -1;
+    }
+
+    for(int i = 0; i<FCB_SIZE; i++) {
       fcb_table[i].isUsed=0;
       fcb_table[i].index=i;
       fcb_table[i].index_table_block=-1;
-
     }
 
-    //init fcb index_table_block
+    //init fcb blocks
     int block_index = 9;
     int fcb_block_count = 4;
-    for(int i = 0; i<fcb_block_count;i++){
+    for(int i = 0; i<fcb_block_count;i++) {
       memcpy(block,fcb_table,32*(sizeof(struct FCB)));
       printf("FCB: %ld\n", 32*(sizeof(struct FCB)));
       if(write_block(block,block_index) != 0 ) return -1;
       block_index++;
+    }
+
+    //initialize open file table
+    for (int i = 0; i < MAX_FILE_OPEN; i++) {
+      openFileTable[i].available = 1;
     }
 
     return (0);
