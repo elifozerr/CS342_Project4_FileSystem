@@ -356,9 +356,10 @@ int sfs_create(char *filename) {
 
             fcb_table[i].isUsed=1;
             fcb_table[i].index = index;
-            fcb_table[i].index_table_block= 9 + (index%32);
+
             int free_block = find_free_block();
             printf("ındex table will be inserted to free block :%d\n",free_block );
+            fcb_table[i].index_table_block= free_block;
             char block[BLOCKSIZE];
             int index_table[1024];
             for(int i = 0;i<1024; i++){
