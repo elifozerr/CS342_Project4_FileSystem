@@ -353,6 +353,16 @@ int sfs_create(char *filename)
             fcb_table[i].isUsed=1;
             fcb_table[i].index = index;
             fcb_table[i].index_table_block= 9 + (index%32);
+            int free_block = find_free_block();
+            printf("ıntex table will be inserted to free block :%d\n",free_block );
+            char block[BLOCKSIZE];
+            int index_table[1024];
+            for(int i = 0;i<1024; i++){
+              index_table[i]=-1;
+            }
+            memcpy(block,index_table, 1024*(sizeof(int)));
+            if(write_block(block,free_block) != 0 ) return -1;
+            printf("index table is added to block %d\n", free_block);
             printf("%s file is created\n" ,filename);
             return(0);
           }
