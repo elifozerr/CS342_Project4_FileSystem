@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
-#include "simplefs.h"
+#include "simplefs.c"
 
 int main(int argc, char **argv)
 {
@@ -64,6 +64,7 @@ int main(int argc, char **argv)
     for (i = 0; i < size; ++i) {
         sfs_read (fd, (void *) buffer, 1);
         c = (char) buffer[0];
+        printf("%c, ", c);
         c = c + 1;
     }
     sfs_close (fd);
