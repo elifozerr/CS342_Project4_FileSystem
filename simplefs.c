@@ -126,7 +126,6 @@ int find_free_block() {
 
   while (bitmap_block <= 4) {
     unsigned int row = bitmap[count_zeros];
-    printf("row = %d\n", row);
     if (row == 0) {
       count_zeros++;
     }
@@ -268,7 +267,7 @@ int create_format_vdisk (char *vdiskname, unsigned int m) {
   //super_block.currentBlockCount=currentBlockNum;
   super_block.totalBlockCount=totalNumBlocks;
 
-  memcpy(block,super_block, sizeof(struct superBlock));
+  memcpy(block,(void *) &super_block, sizeof(struct superBlock));
   if (write_block(block,0) != 0)
     return -1;
 
@@ -350,7 +349,6 @@ int sfs_umount () {
 
 //create  a  new  file with  name filename
 int sfs_create(char *filename) {
-    printf("SFS_CREATE\n");
     //check size of file name
     if( sizeof(filename) > MAX_FILE_NAME){
       printf("ERROR!! - Size of file name is greater than 110.\n" );
@@ -362,7 +360,6 @@ int sfs_create(char *filename) {
       return(-1);
     }
     else{
-      printf("ELSE\n");
       //search file in directory to check whether the file exists
       struct dirEntry dirEntryBlock[32];
       int dir_start_block = 5;
@@ -373,7 +370,6 @@ int sfs_create(char *filename) {
           }
           dir_start_block++;
           for(int i = 0; i < 32; i++){
-            printf("file = %s\n", dirEntryBlock[i].fileName);
             if(strcmp(dirEntryBlock[i].fileName,filename) == 0 && dirEntryBlock[i].available == 0){
               //return(sfs_open(filename,))
               printf("file already exists in directory, can not be created again");
@@ -408,7 +404,7 @@ int sfs_create(char *filename) {
             fcb_block[j].index = (i * 32) + j;
 
             int free_block = find_free_block();
-            printf("ındex table will be inserted to free block :%d\n",free_block );
+            printf("Index table of the file %s will be inserted to free block: %d\n", filename, free_block);
             fcb_block[j].index_table_block= free_block;
             char block[BLOCKSIZE];
             int index_table[1024];
@@ -425,8 +421,7 @@ int sfs_create(char *filename) {
             if(write_block(fcb_block, dir_start_block + 4) == -1) {
               return -1;
             }
-            printf("index table is added to block %d\n", free_block);
-            printf("%s file is created\n" ,filename);
+            printf("%s is created\n" ,filename);
             return(0);
           }
         }
@@ -509,12 +504,11 @@ int sfs_open(char *file, int mode) {
             check_found_dir = 1;
             //search open file to find empty read_position
             for(int k = 0; k < MAX_FILE_OPEN; k++){
-              printf("openFileTable[%d].available = %d\n", k, openFileTable[k].available);
               if(openFileTable[k].available == 1 && found_in_table!=1){
                   found_in_table=1;
                   empty_index = k;
                   dir_index = j * 32 + i;
-                  printf("empty location found in open file table in %d \n",empty_index);
+                  printf("Empty location found in open file table[%d] for the file %s\n", empty_index, file);
                   break;
               }
             }
@@ -528,10 +522,8 @@ int sfs_open(char *file, int mode) {
       }
 
       //dirStructure[dir_index].FCB_index
-      printf("DIRECTORY INDEX = %d\n", dir_index);
       struct FCB fcb_block[32];
       int block_no = (int) (dir_index / 32);
-      printf("BLOCK NO = %d\n", block_no);
       if (read_block((void *) fcb_block, block_no) == -1) {
         printf("read fcb block error\n");
         return -1;
@@ -544,10 +536,10 @@ int sfs_open(char *file, int mode) {
       strcpy(openFileTable[empty_index].name,file);
       openFileTable[empty_index].file_offset=0;
       openFileTable[empty_index].available=0;
-      printf("file is added to open file table\n" );
+      printf("%s is added to the open file table\n", file);
     }
     else {
-      printf("file %s does not exist in the directory, hence cannot open\n", file);
+      printf("%s does not exist in the directory, hence cannot open\n", file);
       return -1;
     }
   }
@@ -670,7 +662,6 @@ int sfs_read(int fd, void *buf, int n) {
               }
             }
             memcpy(buf, buffer, n); // copy the temporary buffer to the actual buffer
-            printf("READ COMPLETED, BYTES = %d\n", bytesRead);
             return bytesRead;
           }
         }
@@ -699,7 +690,6 @@ int sfs_append(int fd, void *buf, int n) {
 
        int index_table[1024];
        int index_table_block = fcb_block[fcb_index_in_block].index_table_block; // get the index table block of the file
-       printf("index table block of the file = %d\n", index_table_block);
        if (read_block((void *) index_table, index_table_block) == -1) { // get the index table
          printf("index_table read error\n");
          return -1;
@@ -709,7 +699,6 @@ int sfs_append(int fd, void *buf, int n) {
        int index_table_index = 0;
 
        if (index_table[index_table_index] == -1) { // no content, first write
-         printf("first write\n.");
          char block[BLOCKSIZE];
          int block_count = (int) (n / BLOCKSIZE);
          int last_block_write = n % BLOCKSIZE;
@@ -743,25 +732,22 @@ int sfs_append(int fd, void *buf, int n) {
 
            write_block(block, free_block);
            index_table[index_table_index] = free_block;
-           printf("index table content of file %s in first write:\n", openFileTable[fd].name);
+           /*printf("index table content of file %s in first write:\n", openFileTable[fd].name);
            printf("[");
            for (int i = 0; i < 1024; i++) {
              printf("%d, ", index_table[i]);
              if (i == 1023) {
                printf("%d]\n", index_table[i]);
              }
-           }
+           }*/
            index_table_index++;
            openFileTable[fd].file_offset = bytes_written;
          }
        }
        else {
          int write_position = (int) (openFileTable[fd].file_offset / BLOCKSIZE); // get the index table's index to start writing from
-         printf("write_postition = %d\n", write_position);
          int block_to_write = index_table[write_position]; // get the block index which contains the content of the file from the index table
-         printf("block to write = %d\n", block_to_write);
          int block_pos = openFileTable[fd].file_offset % BLOCKSIZE; // get the position where to start in the content block
-         printf("block position = %d\n", block_pos);
 
          char block[BLOCKSIZE];
 
@@ -791,16 +777,15 @@ int sfs_append(int fd, void *buf, int n) {
              }
 
              index_table[++write_position] = block_to_write;
-             printf("index table content of file %s in loop:\n", openFileTable[fd].name);
+             /*printf("index table content of file %s in loop:\n", openFileTable[fd].name);
              printf("[");
              for (int i = 0; i < 1024; i++) {
                printf("%d, ", index_table[i]);
                if (i == 1023) {
                  printf("%d]\n", index_table[i]);
                }
-             }
+             }*/
 
-             printf("block to write 2 = %d\n", block_to_write);
              if (read_block(block, block_to_write) == -1) { // get the block to write
                printf("block to write read error\n");
                return -1;
