@@ -987,34 +987,3 @@ int sfs_delete(char *filename) {
     return(-1);
   }
 }
-
-int a(int argc, char const *argv[]) {
-  /* code */
-  create_format_vdisk("disk",20);
-
-  sfs_mount("disk");
-  sfs_create("akca");
-  sfs_open("akca", 1);
-  /*char block[BLOCKSIZE];
-=======
-  char block[BLOCKSIZE];
-
-  for (int i = 0; i < 2 * BITMAP_ROW_COUNT; i++) {
-    printf("FREE = %d\n", find_free_block());
-  }
-
->>>>>>> 3b0cdd326df874b91e91304c44c0b36200494361
-  read_block(block, 1);
-  int c, k;
-  for (int i = 0; i < BITMAP_ROW_COUNT; i++) {
-    for (c = 31; c >= 0; c--) {
-      k = ((unsigned int *)block)[i] >> c;
-      if (k & 1)
-        printf("1");
-      else
-        printf("0");
-    }
-    printf("\n");
-  }*/
-  return 0;
-}
