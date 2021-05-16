@@ -57,7 +57,9 @@ int main(int argc, char **argv)
         memcpy (buffer, buffer2, 8); // just to show memcpy
         sfs_append(fd, (void *) buffer, 8);
     }
-    sfs_close (fd);
+    sfs_delete("file3.bin");
+    sfs_delete("elif.bin");
+    //sfs_close (fd);
 
     fd = sfs_open("file3.bin", MODE_READ);
     size = sfs_getsize (fd);

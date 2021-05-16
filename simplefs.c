@@ -28,16 +28,20 @@ int vdisk_fd; // Global virtual disk file descriptor. Global within the library.
               // Applications will not use  this directly.
 
 int sizeOfDisk;
-int blockNum;
+int currentBlockNum = 13;
+int totalNumBlocks;
 char name_disk[256];
 int mounted = 0;
 // ========================================================
 
 typedef struct superBlock{
   //to fill the block elements
-  char foo[BLOCKSIZE-(sizeof(int))];
-  int blockCount;
-}superBlock;
+  char foo[BLOCKSIZE- sizeof(int)];
+  //int currentBlockCount;
+  int totalBlockCount;
+} superBlock;
+
+struct superBlock super_block;
 
 typedef struct openFileTableEntry {
 
@@ -134,6 +138,7 @@ int find_free_block() {
         printf("bitmap write error\n");
         return -1;
       }
+      currentBlockNum++;
       return count_zeros * BITMAP_ROW_SIZE + where_one_left - 1 + (bitmap_block - 1) * BITMAP_ROW_SIZE * BITMAP_ROW_COUNT;
     }
 
@@ -150,7 +155,7 @@ int find_free_block() {
   return -1;
 }
 
-int free_block(int block_index) {
+void free_block(int block_index) {
   int row = (int) (block_index / BITMAP_ROW_SIZE);
   int row_pos = block_index % BITMAP_ROW_SIZE;
   unsigned int block[BITMAP_ROW_COUNT];
@@ -162,6 +167,8 @@ int free_block(int block_index) {
   char zero_buffer[BLOCKSIZE];
   bzero((void *) zero_buffer, BLOCKSIZE);
   write_block(zero_buffer, block_index);
+
+  currentBlockNum--;
 }
 
 int find_fcb_index(int fd) {
@@ -222,9 +229,9 @@ int create_format_vdisk (char *vdiskname, unsigned int m) {
   //erase data in BLOCKSIZE bytes from mem starting from buffer
   bzero((void*)buffer, BLOCKSIZE);
   vdisk_fd = open(vdiskname, O_RDWR);
-  int numBlocks = size/BLOCKSIZE;
+  totalNumBlocks = size/BLOCKSIZE;
   //write to the blocks
-  for(int i = 0; i< numBlocks; i++){
+  for(int i = 0; i< totalNumBlocks; i++){
     n = write(vdisk_fd,buffer,BLOCKSIZE);
 
   }
@@ -256,6 +263,14 @@ int create_format_vdisk (char *vdiskname, unsigned int m) {
 
   //define block
   char block[BLOCKSIZE];
+
+  //init super_block
+  //super_block.currentBlockCount=currentBlockNum;
+  super_block.totalBlockCount=totalNumBlocks;
+
+  memcpy(block,super_block, sizeof(struct superBlock));
+  if (write_block(block,0) != 0)
+    return -1;
 
   //block 1-2-3-4 contain the bitmap
   for (int i = 1; i <= 4; i++) {
@@ -358,7 +373,8 @@ int sfs_create(char *filename) {
           }
           dir_start_block++;
           for(int i = 0; i < 32; i++){
-            if(strcmp(dirEntryBlock[i].fileName,filename) == 0){
+            printf("file = %s\n", dirEntryBlock[i].fileName);
+            if(strcmp(dirEntryBlock[i].fileName,filename) == 0 && dirEntryBlock[i].available == 0){
               //return(sfs_open(filename,))
               printf("file already exists in directory, can not be created again");
               return(-1);
@@ -430,30 +446,8 @@ int sfs_open(char *file, int mode) {
 
   if(mounted) {
 
-    int check_found = 0;
-    int check_found_dir=0;
-    int found_in_table = 0;
-
-    //search open file table to check whether file is open
-    for(int i = 0;i< MAX_FILE_OPEN;i++){
-        if(check_found==0){
-            if( (openFileTable[i].available==0) && strcmp(openFileTable[i].name,file)==0){
-                check_found = 1;
-                openFileTable[i].openNum += 1;
-                openFileTable[i].file_offset=0;
-                openFileTable[i].accessMode = mode; //??
-                file_index=1;
-                return file_index;
-
-            }
-        }
-    }
-    //find file by searching directory structure
-    //get blockstruct dirEntry dirEntryBlock[32];
-    //int dirEntryBlockIndex = 5 + openFileTable[fd].fcb->index / BLOCKSIZE;
+    int file_exists = 0;
     struct dirEntry dirEntryBlock[32];
-
-
     int dir_start_block = 5;
     for(int j = 0; j<4; j++){
 
@@ -463,70 +457,125 @@ int sfs_open(char *file, int mode) {
       }
 
       for(int i=0;i<32;i++){
-
-        if(check_found_dir!=1 && dirEntryBlock[i].available==0
-          && strcmp(dirEntryBlock[i].fileName,file)==0 ) {
-
-          check_found_dir = 1;
-          //search open file to find empty read_position
-          for(int k = 0; k < MAX_FILE_OPEN; k++){
-            printf("openFileTable[%d].available = %d\n", k, openFileTable[k].available);
-            if(openFileTable[k].available == 1 && found_in_table!=1){
-                found_in_table=1;
-                empty_index = k;
-                dir_index = j * 32 + i;
-                printf("empty location found in open file table in %d \n",empty_index);
-                break;
-            }
-          }
+        if(strcmp(dirEntryBlock[i].fileName,file) == 0) {
+          file_exists = 1;
           break;
         }
       }
-      if(found_in_table)
+      if (file_exists) {
         break;
-
+      }
       dir_start_block++;
     }
 
-    //dirStructure[dir_index].FCB_index
-    printf("DIRECTORY INDEX = %d\n", dir_index);
-    struct FCB fcb_block[32];
-    int block_no = (int) (dir_index / 32);
-    printf("BLOCK NO = %d\n", block_no);
-    if (read_block((void *) fcb_block, block_no) == -1) {
-      printf("read fcb block error\n");
+    if (file_exists) {
+
+      int check_found = 0;
+      int check_found_dir=0;
+      int found_in_table = 0;
+
+      //search open file table to check whether file is open
+      for(int i = 0;i< MAX_FILE_OPEN;i++){
+          if(check_found==0){
+              if( (openFileTable[i].available==0) && strcmp(openFileTable[i].name,file)==0){
+                  check_found = 1;
+                  openFileTable[i].openNum += 1;
+                  openFileTable[i].file_offset=0;
+                  openFileTable[i].accessMode = mode; //??
+                  file_index=1;
+                  return file_index;
+
+              }
+          }
+      }
+      //find file by searching directory structure
+      //get blockstruct dirEntry dirEntryBlock[32];
+      //int dirEntryBlockIndex = 5 + openFileTable[fd].fcb->index / BLOCKSIZE;
+
+
+      dir_start_block = 5;
+      for(int j = 0; j<4; j++){
+
+        if (read_block((void *) dirEntryBlock, dir_start_block) == -1) {
+          printf("read dir entry block 5 error\n");
+          return -1;
+        }
+
+        for(int i=0;i<32;i++){
+
+          if(check_found_dir!=1 && dirEntryBlock[i].available==0
+            && strcmp(dirEntryBlock[i].fileName,file)==0 ) {
+
+            check_found_dir = 1;
+            //search open file to find empty read_position
+            for(int k = 0; k < MAX_FILE_OPEN; k++){
+              printf("openFileTable[%d].available = %d\n", k, openFileTable[k].available);
+              if(openFileTable[k].available == 1 && found_in_table!=1){
+                  found_in_table=1;
+                  empty_index = k;
+                  dir_index = j * 32 + i;
+                  printf("empty location found in open file table in %d \n",empty_index);
+                  break;
+              }
+            }
+            break;
+          }
+        }
+        if(found_in_table)
+          break;
+
+        dir_start_block++;
+      }
+
+      //dirStructure[dir_index].FCB_index
+      printf("DIRECTORY INDEX = %d\n", dir_index);
+      struct FCB fcb_block[32];
+      int block_no = (int) (dir_index / 32);
+      printf("BLOCK NO = %d\n", block_no);
+      if (read_block((void *) fcb_block, block_no) == -1) {
+        printf("read fcb block error\n");
+        return -1;
+      }
+
+      //openFileTable[empty_index].fcb = &(fcb_block[dir_index % 32]);
+      //printf("FCB INDEX = %d\n", openFileTable[empty_index].fcb->index);
+      openFileTable[empty_index].openNum = 1;
+      openFileTable[empty_index].accessMode= mode;
+      strcpy(openFileTable[empty_index].name,file);
+      openFileTable[empty_index].file_offset=0;
+      openFileTable[empty_index].available=0;
+      printf("file is added to open file table\n" );
+    }
+    else {
+      printf("file %s does not exist in the directory, hence cannot open\n", file);
       return -1;
     }
-
-    //openFileTable[empty_index].fcb = &(fcb_block[dir_index % 32]);
-    //printf("FCB INDEX = %d\n", openFileTable[empty_index].fcb->index);
-    openFileTable[empty_index].openNum = 1;
-    openFileTable[empty_index].accessMode= mode;
-    strcpy(openFileTable[empty_index].name,file);
-    openFileTable[empty_index].file_offset=0;
-    openFileTable[empty_index].available=0;
-    printf("file is added to open file table\n" );
   }
   return empty_index;
 }
 
 int sfs_close(int fd){
   if(mounted){
-      //check whether the the file in open file fcb_table
-      if(openFileTable[fd].available == 1){
-        printf("the index of fd %d is empty in the open file table\n", fd);
-        return (-1);
-      }
-      else{
-
-        openFileTable[fd].openNum -=1;
-        if(openFileTable[fd].openNum ==0){
-          openFileTable[fd].available = 1;
-          char name [MAX_FILE_NAME];
-          strcpy(name,openFileTable[fd].name);
-          printf("the file %s is closed\n", name);
-          return(0);
+      if (fd != -1) {
+        //check whether the the file in open file fcb_table
+        if(openFileTable[fd].available == 1){
+          printf("the index of fd %d is empty in the open file table\n", fd);
+          return (-1);
         }
+        else{
+
+          openFileTable[fd].openNum -=1;
+          if(openFileTable[fd].openNum ==0){
+            openFileTable[fd].available = 1;
+            char name [MAX_FILE_NAME];
+            strcpy(name,openFileTable[fd].name);
+            printf("the file %s is closed\n", name);
+            return(0);
+          }
+        }
+      }
+      else {
+        printf("file does not exist in the directory hence cannot be closed\n");
       }
   }
   else{
@@ -780,8 +829,11 @@ int sfs_append(int fd, void *buf, int n) {
 
 int sfs_delete(char *filename) {
   if (mounted) { // check if mount operation is done
+    int file_open = 0;
     for (int fd = 0; fd < MAX_FILE_OPEN; fd++) {
       if (strcmp(filename, openFileTable[fd].name) == 0 && !openFileTable[fd].available) { // if the file is opened
+        file_open = 1;
+        printf("DELETE %s\n", filename);
         int fcb_index = find_fcb_index(fd);
         int fcb_block_no = 9 + (int) (fcb_index / 32);
         int fcb_index_in_block = fcb_index % 32;
@@ -823,6 +875,11 @@ int sfs_delete(char *filename) {
           return -1;
         }
 
+        if (write_block(dirEntryBlock, dirEntryBlockIndex) == -1) {
+          printf("dir enrty block write error\n");
+          return -1;
+        }
+
         sfs_close(fd);
 
         int table_index = 0;
@@ -831,9 +888,100 @@ int sfs_delete(char *filename) {
           index_table[table_index] = -1;
           table_index++;
         }
+
+        if (write_block(index_table, index_table_block) == -1) {
+          printf("index table block write error\n");
+          return -1;
+        }
       }
     }
-    return (0);
+
+    if (!file_open) {
+      int file_exists = 0;
+      int fcb_index = -1;
+      struct dirEntry dirEntryBlock[32];
+      int dir_start_block = 5;
+      for(int j = 0; j<4; j++){
+
+        if (read_block((void *) dirEntryBlock, dir_start_block) == -1) {
+          printf("read dir entry block 5 error\n");
+          return -1;
+        }
+
+        for(int i=0;i<32;i++){
+          if(strcmp(dirEntryBlock[i].fileName,filename) == 0) {
+            file_exists = 1;
+            fcb_index = dirEntryBlock[i].FCB_index;
+            break;
+          }
+        }
+        if (file_exists) {
+          break;
+        }
+        dir_start_block++;
+      }
+      if (file_exists) {
+        int fcb_block_no = 9 + (int) (fcb_index / 32);
+        int fcb_index_in_block = fcb_index % 32;
+
+        struct FCB fcb_block[32];
+        if (read_block((void *) fcb_block, fcb_block_no) == -1) {
+          printf("read fcb block error\n");
+        }
+
+        int index_table[1024];
+        int index_table_block = fcb_block[fcb_index_in_block].index_table_block;
+        if (read_block((void *) index_table, index_table_block) == -1) {
+          printf("read index table error\n");
+          return -1;
+        }
+
+        fcb_block[fcb_index_in_block].isUsed = 0;
+        fcb_block[fcb_index_in_block].index_table_block = -1;
+        fcb_block[fcb_index_in_block].fileSize = 0;
+        int dirEntryBlockIndex = 5 + fcb_block[fcb_index_in_block].index / BLOCKSIZE;
+        struct dirEntry dirEntryBlock[32];
+        if (read_block((void *) dirEntryBlock, dirEntryBlockIndex) == -1) {
+          printf("read dir entry block error\n");
+          return -1;
+        }
+
+        if (dirEntryBlock[fcb_block[fcb_index_in_block].index % BLOCKSIZE].FCB_index == fcb_block[fcb_index_in_block].index
+              && strcmp(dirEntryBlock[fcb_block[fcb_index_in_block].index % BLOCKSIZE].fileName, filename) == 0) {
+          printf("doğru yoldasın\n");
+          strcpy(dirEntryBlock[fcb_block[fcb_index_in_block].index % BLOCKSIZE].fileName, "");
+          dirEntryBlock[fcb_block[fcb_index_in_block].index % BLOCKSIZE].available = 1;
+
+        }
+
+        if (write_block(fcb_block, fcb_block_no) == -1) {
+          printf("write fcb block error\n");
+          return -1;
+        }
+
+        if (write_block(dirEntryBlock, dirEntryBlockIndex) == -1) {
+          printf("dir enrty block write error\n");
+          return -1;
+        }
+
+        int table_index = 0;
+        while (index_table[table_index] != -1) {
+          free_block(index_table[table_index]);
+          index_table[table_index] = -1;
+          table_index++;
+        }
+
+        if (write_block(index_table, index_table_block) == -1) {
+          printf("index table block write error\n");
+          return -1;
+        }
+      }
+      else {
+        printf("file %s does not exist in the directory hence cannot be deleted.\n", filename);
+        return -1;
+      }
+    }
+    return 0;
   }
   else{
     return(-1);
