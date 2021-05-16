@@ -116,7 +116,6 @@ int write_block (void *block, int k)
 
 int find_free_block() {
   int count_zeros = 0;
-  int found = 0;
   int bitmap_block = 1;
   unsigned int bitmap[BITMAP_ROW_COUNT];
   if (read_block((void *) bitmap, bitmap_block) == -1) {
@@ -291,10 +290,6 @@ int create_format_vdisk (char *vdiskname, unsigned int m) {
       return -1;
   }
 
-  printf("size of dirEntry = %ld bytes\n", sizeof(struct dirEntry));
-  printf("size of openFileTableEntry = %ld bytes\n", sizeof(struct openFileTableEntry));
-  printf("size of foo = %ld\n", DIR_SIZE-(sizeof(char)*MAX_FILE_NAME)-(sizeof(int)*2));
-
   //block 5-6-7-8 contain the directory structure
   for (int i = 5; i <= 8; i++) {
     memcpy(block,&(dirStructure[(i - 5) * 32]), 32*(sizeof(struct dirEntry)));
@@ -313,7 +308,6 @@ int create_format_vdisk (char *vdiskname, unsigned int m) {
   int fcb_block_count = 4;
   for(int i = 0; i<fcb_block_count;i++) {
     memcpy(block,&(fcb_table[i * 32]), 32*(sizeof(struct FCB)));
-    printf("FCB: %ld\n", 32*(sizeof(struct FCB)));
     if(write_block(block,block_index) != 0 ) return -1;
     block_index++;
   }
@@ -372,12 +366,11 @@ int sfs_create(char *filename) {
           for(int i = 0; i < 32; i++){
             if(strcmp(dirEntryBlock[i].fileName,filename) == 0 && dirEntryBlock[i].available == 0){
               //return(sfs_open(filename,))
-              printf("file already exists in directory, can not be created again");
+              printf("file already exists in directory, can not be created again.\n");
               return(-1);
             }
           }
       }
-      int emptyFound = 0;
 
       //find available directory entry to put the file
       dir_start_block = 5;
@@ -395,7 +388,6 @@ int sfs_create(char *filename) {
 
         for (int j = 0; j < 32; j++) {
           if(dirEntryBlock[j].available == 1) {
-            emptyFound=1;
             strcpy(dirEntryBlock[j].fileName,filename);
             dirEntryBlock[j].available = 0;
             dirEntryBlock[j].FCB_index = (i * 32) + j;
@@ -574,6 +566,7 @@ int sfs_close(int fd){
       printf("ERROR - Not mounted\n" );
       return(-1);
   }
+  return -1;
 }
 
 int sfs_getsize (int  fd)

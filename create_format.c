@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
-#include "simplefs.c"
+#include "simplefs.h"
 
 int main(int argc, char **argv)
 {
@@ -25,17 +25,6 @@ int main(int argc, char **argv)
         printf ("there was an error in creating the disk\n");
         exit(1);
     }
-    /*int c, k;
-    for (int i = 0; i < 1024; i++) {
-      for (c = 31; c >= 0; c--) {
-        k = ((unsigned int *)block)[i] >> c;
-        if (k & 1)
-          printf("1");
-        else
-          printf("0");
-      }
-      printf("\n");
-    }*/
-
+    
     printf ("disk created and formatted. %s %d\n", vdiskname, m);
 }
